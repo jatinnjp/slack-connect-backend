@@ -3,8 +3,6 @@ const axios = require('axios');
 const router = express.Router();
 const dotenv = require('dotenv');
 const Message = require('../models/Message');
-const cron = require('node-cron');
-const mongoose = require('mongoose');
 
 dotenv.config();
 
@@ -31,19 +29,26 @@ router.get('/callback', async (req, res) => {
       }
     });
 
-    const { access_token, refresh_token, authed_user } = response.data;
-    const userId = authed_user.id;
+    console.log('Slack OAuth response:', response.data);
 
-    // Save tokens in DB
-    await Message.findOneAndUpdate(
+    const { access_token, authed_user } = response.data;
+    const userId = authed_user?.id;
+
+    if (!access_token || !userId) {
+      console.error('❌ Missing access_token or userId');
+      return res.status(400).send('Invalid Slack response');
+    }
+
+    const result = await Message.findOneAndUpdate(
       { userId },
-      { accessToken: access_token, refreshToken: refresh_token },
-      { upsert: true }
+      { accessToken: access_token },
+      { upsert: true, new: true }
     );
 
+    console.log('✅ Saved user to MongoDB:', result);
     res.send('Slack connected successfully!');
   } catch (error) {
-    console.error(error);
+    console.error('❌ OAuth error:', error.response?.data || error.message);
     res.status(500).send('OAuth failed');
   }
 });
@@ -56,7 +61,7 @@ router.post('/send', async (req, res) => {
   if (!user) return res.status(404).send('User not found');
 
   try {
-    await axios.post('https://slack.com/api/chat.postMessage', {
+    const result = await axios.post('https://slack.com/api/chat.postMessage', {
       channel,
       text
     }, {
@@ -66,9 +71,14 @@ router.post('/send', async (req, res) => {
       }
     });
 
+    if (!result.data.ok) {
+      console.error('Slack API error:', result.data);
+      return res.status(500).send('Slack API error: ' + result.data.error);
+    }
+
     res.send('Message sent!');
   } catch (error) {
-    console.error(error.response.data);
+    console.error('Send error:', error.response?.data || error.message);
     res.status(500).send('Failed to send message');
   }
 });
@@ -83,7 +93,6 @@ router.post('/schedule', async (req, res) => {
   const message = await Message.create({
     userId,
     accessToken: user.accessToken,
-    refreshToken: user.refreshToken,
     channel,
     text,
     sendAt: new Date(sendAt),
