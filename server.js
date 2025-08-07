@@ -29,6 +29,9 @@ app.use('/slack', slackRoutes);
 require('./cron/scheduler');
 
 const PORT = process.env.PORT || 5000;
+app.get('/', (req, res) => {
+  res.send('Slack Connect Backend is running ✅');
+});
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
 });
