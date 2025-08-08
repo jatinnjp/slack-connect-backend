@@ -12,6 +12,7 @@ const REDIRECT_URI = process.env.SLACK_REDIRECT_URI;
 
 // 👉 STEP 1: Redirect to Slack OAuth
 router.get('/auth', (req, res) => {
+  console.log("DEBUG Redirect URI being sent to Slack:", REDIRECT_URI);
   const url = `https://slack.com/oauth/v2/authorize?client_id=${CLIENT_ID}&scope=chat:write,channels:read,channels:join,users:read,groups:read&redirect_uri=${REDIRECT_URI}`;
   res.redirect(url);
 });
