@@ -29,7 +29,9 @@ router.get('/callback', async (req, res) => {
       }
     });
 
-    console.log('Slack OAuth response:', response.data);
+    console.log('📡 Received OAuth code from Slack:', code);
+    console.log('🔁 Slack OAuth response:', JSON.stringify(response.data, null, 2));
+
 
     const { access_token, authed_user } = response.data;
     const userId = authed_user?.id;
