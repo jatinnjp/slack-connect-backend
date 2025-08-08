@@ -29,26 +29,33 @@ router.get('/callback', async (req, res) => {
       }
     });
 
-    console.log('📡 Received OAuth code from Slack:', code);
-    console.log('🔁 Slack OAuth response:', JSON.stringify(response.data, null, 2));
+    console.log("🔍 Slack OAuth Full Response:", JSON.stringify(response.data, null, 2));
 
+    if (!response.data.ok) {
+      console.error("❌ Slack OAuth Error:", response.data.error);
+      return res.status(400).send('OAuth failed: ' + response.data.error);
+    }
 
-    const { access_token, authed_user } = response.data;
-    const userId = authed_user?.id;
+    // Extract bot access token & user info
+    const botToken = response.data.access_token; // xoxb-...
+    const botUserId = response.data.bot_user_id; // Bot ID
+    const userId = response.data.authed_user?.id || botUserId || `bot-${Date.now()}`;
 
-    if (!access_token || !userId) {
-      console.error('❌ Missing access_token or userId');
+    if (!botToken || !userId) {
+      console.error('❌ Missing botToken or userId in Slack response');
       return res.status(400).send('Invalid Slack response');
     }
 
+    // Save in DB (so /send can use it later)
     const result = await Message.findOneAndUpdate(
       { userId },
-      { accessToken: access_token },
+      { accessToken: botToken },
       { upsert: true, new: true }
     );
 
-    console.log('✅ Saved user to MongoDB:', result);
-    res.send('Slack connected successfully!');
+    console.log('✅ Saved to MongoDB:', result);
+
+    res.send('✅ Slack connected successfully! You can close this tab and go back to the app.');
   } catch (error) {
     console.error('❌ OAuth error:', error.response?.data || error.message);
     res.status(500).send('OAuth failed');
